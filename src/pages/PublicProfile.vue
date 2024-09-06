@@ -28,7 +28,7 @@ export default {
     PageComponentMixin,
     StripeMixin,
   ],
-  data () {
+  data() {
     return {
       suggestedOffers: [],
       isEditingImages: false,
@@ -40,16 +40,16 @@ export default {
     }
   },
   computed: {
-    isCurrentUser () {
+    isCurrentUser() {
       return this.currentUser.id === this.selectedUser.id
     },
-    selectedUserAssets () {
+    selectedUserAssets() {
       return this.usersAssets[this.selectedUser.id] || []
     },
-    selectedUserLocations () {
+    selectedUserLocations() {
       return this.selectedUser.locations || []
     },
-    locationValue () {
+    locationValue() {
       return this.selectedUser.locationName
     },
     ...mapGetters([
@@ -68,7 +68,7 @@ export default {
       'style',
     ]),
   },
-  async preFetch ({ store, currentRoute, redirect }) {
+  async preFetch({ store, currentRoute, redirect }) {
     const { id: userId } = currentRoute.params
 
     try {
@@ -82,60 +82,57 @@ export default {
       await store.dispatch('fetchAssetTypes')
     } catch (err) {
       const code = err.statusCode
-      if (code >= 400 && code < 500) redirect(`/${code}`) // needs a string for SSR
+      if (code >= 400 && code < 500) redirect(`/${code}`)
       else throw err
     }
   },
   watch: {
-    async '$route' () {
-      // ensure appropriate objects are displayed when switching profiles
+    async '$route'() {
       this.loadProfile()
     }
   },
-  async created () {
-    this.loadProfile() // not blocking here
+  async created() {
+    this.loadProfile()
   },
   methods: {
-    loadProfile () {
-      return Promise.all([
+    async loadProfile() {
+      await Promise.all([
         this.fetchUserAssets(),
         this.fetchRatingsStatsByTargetId({ targetId: this.selectedUser.id }),
         this.fetchUserRatingsByTransaction({ userId: this.selectedUser.id })
       ])
     },
-    async fetchUserAssets () {
+    async fetchUserAssets() {
       return this.$store.dispatch('fetchUserAssets', {
         userId: this.selectedUser.id
       })
     },
-    fetchRatingsStatsByTargetId ({ targetId }) {
-      if (!this.ratingsActive) return
-      if (!targetId) return
+    fetchRatingsStatsByTargetId({ targetId }) {
+      if (!this.ratingsActive || !targetId) return
 
       return this.$store.dispatch('fetchRatingsStats', { targetId, groupBy: 'targetId' })
     },
-    async fetchUserRatingsByTransaction ({ userId }) {
-      if (!this.ratingsActive) return
-      if (!userId) return
+    async fetchUserRatingsByTransaction({ userId }) {
+      if (!this.ratingsActive || !userId) return
 
       this.userRatingsByTransaction = await this.$store.dispatch('fetchRatingsByTransaction', { targetId: userId })
       this.userRatingsLoaded = true
     },
-    updateUserFn (fieldName) {
+    updateUserFn(fieldName) {
       return async (value) => {
         await this.updateUser(fieldName, value)
       }
     },
-    prepareUpdatedLocations (place, handlerFn) {
+    prepareUpdatedLocations(place, handlerFn) {
       extractLocationDataFromPlace(place, loc => { handlerFn(loc ? [loc] : null) })
     },
-    async removeLocationByIndex (index) {
+    async removeLocationByIndex(index) {
       const locations = this.selectedUser.locations
       const newLocations = locations.filter((loc, i) => i !== index)
 
       await this.updateUser('locations', newLocations)
     },
-    async updateUser (fieldName, value) {
+    async updateUser(fieldName, value) {
       await this.$store.dispatch('updateUser', {
         userId: this.selectedUser.id,
         attrs: {
@@ -144,7 +141,6 @@ export default {
       })
       this.notifySuccess('notification.saved')
 
-      // Hack to erase the content in locations AppSwitchableEditor (c.f. `computed.locationValue`)
       if (fieldName === 'locations') {
         this.locationsChanged = true
         await this.$nextTick()
@@ -156,12 +152,10 @@ export default {
 </script>
 
 <template>
-  <QPage
-    :key="selectedUser.id"
-    class="stl-footer--bottom"
-  >
+  <QPage :key="selectedUser.id" class="stl-footer--bottom">
     <div class="row flex-center">
       <div class="full-width stl-content-container q-pb-xl">
+        <!-- Profile Title Section -->
         <section class="q-px-lg q-pt-lg">
           <AppSwitchableEditor
             tag="h1"
@@ -172,7 +166,8 @@ export default {
             :input-label="$t({ id: 'user.account.my_profile_title_label' })"
           />
 
-          <div v-if="isCurrentUser || (!isCurrentUser && selectedUserLocations.length)">
+          <!-- Location Editing Section -->
+          <div v-if="isCurrentUser || selectedUserLocations.length">
             <div class="row justify-between q-my-md">
               <AppSwitchableEditor
                 v-if="isPlaceSearchEnabled"
@@ -209,17 +204,17 @@ export default {
           </div>
         </section>
 
+        <!-- Profile Card -->
         <div class="q-mt-xl">
           <ProfileCard />
         </div>
 
-        <!-- Wait for API before hiding this so we can show some skeleton screen in the future -->
+        <!-- Description Section -->
         <section
-          v-show="!(selectedUser.id && !isCurrentUser && !selectedUser.description)"
+          v-show="selectedUser.id && (isCurrentUser || selectedUser.description)"
           class="q-px-sm"
         >
           <QSeparator class="q-mt-xl" />
-          <!-- Shared by natural user and orgs -->
           <AppContent
             v-if="selectedUser.description"
             tag="h2"
@@ -227,8 +222,6 @@ export default {
             entry="asset"
             field="description_label"
           />
-          <!-- reuse generic asset.description_label -->
-
           <AppSwitchableEditor
             tag="p"
             class="text-body1 q-ma-lg text-justify"
@@ -241,33 +234,27 @@ export default {
           />
         </section>
 
+        <!-- Stripe Account Linking Section -->
         <section
           v-if="isCurrentUser && stripeActive && selectedUserAssets.length && !hasLinkedStripeAccount"
           class="q-px-sm"
         >
           <QSeparator class="q-mt-xl" />
-
           <StripeLinkAccount />
         </section>
 
-        <section
-          v-show="userRatingsLoaded && ratingsActive"
-          class="q-mt-md"
-        >
+        <!-- User Ratings Section -->
+        <section v-show="userRatingsLoaded && ratingsActive" class="q-mt-md">
           <QSeparator class="q-mt-xl" />
-
           <TransactionRatingsList
             :ratings="userRatingsByTransaction"
             :target="selectedUser"
           />
         </section>
 
-        <section
-          v-show="suggestedOffers.length"
-          class="q-px-sm"
-        >
+        <!-- Suggested Offers Section -->
+        <section v-show="suggestedOffers.length" class="q-px-sm">
           <QSeparator class="q-mt-xl" />
-
           <AppContent
             tag="h2"
             class="text-h4 text-weight-medium"
@@ -284,12 +271,9 @@ export default {
           </div>
         </section>
 
-        <section
-          v-show="selectedUserAssets.length"
-          class="q-px-sm"
-        >
+        <!-- User Assets Section -->
+        <section v-show="selectedUserAssets.length" class="q-px-sm">
           <QSeparator class="q-mt-xl" />
-
           <AppContent
             id="profile-assets"
             tag="h2"
@@ -314,7 +298,6 @@ export default {
     <AppFooter />
   </QPage>
 </template>
-
 <style lang="stylus" scoped>
 .justify-assets
   justify-content: center
