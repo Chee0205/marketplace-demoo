@@ -5,16 +5,16 @@ export default {
   mixins: [
     PageComponentMixin,
   ],
-  data () {
+  data() {
     return {
-      errorCode: 404
+      errorCode: 404 // Default error code
     }
   },
-  beforeMount () {
-    const urlCode = this.$route.path.replace(/[^\d]*(\d{3})$/, '$1')
-
-    if (urlCode) {
-      this.errorCode = parseInt(urlCode, 10) || this.errorCode
+  beforeMount() {
+    // Extract the last 3-digit number from the URL, default to 404 if not found
+    const match = this.$route.path.match(/(\d{3})$/);
+    if (match) {
+      this.errorCode = parseInt(match[1], 10);
     }
   }
 }
@@ -23,6 +23,7 @@ export default {
 <template>
   <QPage class="flex flex-center">
     <div class="text-center">
+      <!-- Header for the Not Found page -->
       <AppContent
         class="text-h5 text-weight-medium"
         tag="h1"
@@ -30,18 +31,20 @@ export default {
         field="not_found.header"
       />
 
+      <!-- Button to redirect to the home page -->
       <QBtn
         class="q-mb-xl"
         color="secondary"
         :to="{ name: 'home' }"
-        :label="$t( { id: 'navigation.home' })"
+        :label="$t({ id: 'navigation.home' })"
       />
 
+      <!-- Error message display -->
       <p
         v-if="errorCode === 404"
         class="text-grey"
       >
-        {{ $t( { id: 'pages.not_found.404_error_label' }) }}
+        {{ $t({ id: 'pages.not_found.404_error_label' }) }}
       </p>
       <p
         v-else
